@@ -514,6 +514,9 @@ if [ -z "$vpass" ]; then
   vpass=$(gen_pass)
 fi
 
+# Generate MySQL/MariaDB root password
+mpass=$(gen_pass)
+
 # Set hostname if it wasn't set
 if [ -z "$servername" ]; then
   servername=$(hostname -f)
@@ -605,8 +608,13 @@ fi
 # Installing MySQL repo
 if [ "$mysql" = 'yes' ]; then
   echo "[ * ] MySQL (may take up to a few minutes...please DO NOT CLOSE the installer)"
-  echo "deb [arch=amd64] http://repo.mysql.com/apt/$VERSION/ bionic mysql-$mysql_v" >$apt/mysql.list
   apt-key adv --keyserver pgp.mit.edu --recv-keys 5072E1F5 >/dev/null 2>&1
+  curl -o /tmp/mysql-apt-config.deb -L https://dev.mysql.com/get/mysql-apt-config_0.8.9-1_all.deb
+  DEBIAN_FRONTEND=noninteractive dpkg -i /tmp/mysql-apt-config*
+  rm /tmp/mysql-apt-config*
+
+  echo "mysql-community-server mysql-community-server/root-pass password $mpass" | debconf-set-selections
+  echo "mysql-community-server mysql-community-server/re-root-pass password $mpass" | debconf-set-selections
 fi
 
 # Installing HestiaCP repo
@@ -1385,7 +1393,7 @@ fi
 #                  Configure MariaDB/MySQL                 #
 #----------------------------------------------------------#
 
-if [ "$mysql" = 'yes' ]; then
+if [ "$mysql" = 'yes' ] || [ "$mariadb" = 'yes' ]; then
   echo "[ * ] Configuring database server..."
   mycnf="my-small.cnf"
   if [ $memory -gt 1200000 ]; then
@@ -1400,14 +1408,13 @@ if [ "$mysql" = 'yes' ]; then
 
   # Configuring MariaDB/MySQL
   cp -f $HESTIA_INSTALL_DIR/mysql/$mycnf /etc/mysql/my.cnf
-  mysql_install_db >>$LOG
+  mysql_secure_installation >>$LOG
 
   update-rc.d mysql defaults >/dev/null 2>&1
   systemctl start mysql >>$LOG
   check_result $? "database start failed"
 
   # Securing MariaDB/MySQL installation
-  mpass=$(gen_pass)
   mysqladmin -u root password $mpass >>$LOG
   echo -e "[client]\npassword='$mpass'\n" >/root/.my.cnf
   chmod 600 /root/.my.cnf
