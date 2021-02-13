@@ -614,8 +614,9 @@ if [ "$mysql" = 'yes' ]; then
   curl -o /tmp/mysql-apt-config.deb -L https://dev.mysql.com/get/mysql-apt-config_0.8.9-1_all.deb
   DEBIAN_FRONTEND=noninteractive dpkg -i /tmp/mysql-apt-config*
   rm /tmp/mysql-apt-config*
-  echo "mysql-server mysql-server/root-pass password $mpass" | debconf-set-selections
-  echo "mysql-server mysql-server/re-root-pass password $mpass" | debconf-set-selections
+  debconf-set-selections <<< "mysql-community-server mysql-community-server/root-pass password $mpass"
+  debconf-set-selections <<< "mysql-community-server mysql-community-server/re-root-pass password $mpass"
+  echo "MySQL root generated: $mpass"
 fi
 
 # Installing HestiaCP repo
@@ -1415,24 +1416,27 @@ if [ "$mysql" = 'yes' ] || [ "$mariadb" = 'yes' ]; then
 
   # Configuring MariaDB/MySQL
   cp -f $HESTIA_INSTALL_DIR/mysql/$mycnf /etc/mysql/my.cnf
+  if [ "$release" != '16.04' ]; then
+      mysql_install_db
+  fi
+  if [ "$release" == '18.04' ]; then
+      mkdir /var/lib/mysql
+      chown mysql:mysql /var/lib/mysql
+      mysqld --initialize-insecure
+  fi
+  update-rc.d mysql defaults
+  service mysql start
+  check_result $? "mysql start failed"
 
-  mysql_secure_installation >>$LOG
-
-  update-rc.d mysql defaults >/dev/null 2>&1
-  systemctl start mysql >>$LOG
-  check_result $? "database start failed"
-
-  # Securing MariaDB/MySQL installation
-  mysqladmin -u root password $mpass >>$LOG
-  echo -e "[client]\npassword='$mpass'\n" >/root/.my.cnf
+  # Securing MySQL/MariaDB installation
+  mysqladmin -u root password $mpass
+  echo -e "[client]\npassword='$mpass'\n" > /root/.my.cnf
   chmod 600 /root/.my.cnf
-
-  # Clear MariaDB/MySQL Test Users and Databases
   mysql -e "DELETE FROM mysql.user WHERE User=''"
   mysql -e "DROP DATABASE test" >/dev/null 2>&1
   mysql -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%'"
-  mysql -e "DELETE FROM mysql.user WHERE user='';"
-  mysql -e "DELETE FROM mysql.user WHERE password='' AND authentication_string='';"
+  mysql -e "DELETE FROM mysql.user WHERE user='' OR password='';"
+  mysql -e "FLUSH PRIVILEGES"
 fi
 
 #----------------------------------------------------------#
