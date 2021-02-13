@@ -609,12 +609,13 @@ fi
 if [ "$mysql" = 'yes' ]; then
   echo "[ * ] MySQL (may take up to a few minutes...please DO NOT CLOSE the installer)"
   apt-key adv --keyserver pgp.mit.edu --recv-keys 5072E1F5 >/dev/null 2>&1
+  debconf-set-selections <<< 'mysql-apt-config mysql-apt-config/repo-codename select bionic'
+  debconf-set-selections <<< 'mysql-apt-config mysql-apt-config/repo-distro select ubuntu'
   curl -o /tmp/mysql-apt-config.deb -L https://dev.mysql.com/get/mysql-apt-config_0.8.9-1_all.deb
   DEBIAN_FRONTEND=noninteractive dpkg -i /tmp/mysql-apt-config*
   rm /tmp/mysql-apt-config*
-
-  echo "mysql-community-server mysql-community-server/root-pass password $mpass" | debconf-set-selections
-  echo "mysql-community-server mysql-community-server/re-root-pass password $mpass" | debconf-set-selections
+  echo "mysql-server mysql-server/root-pass password $mpass" | debconf-set-selections
+  echo "mysql-server mysql-server/re-root-pass password $mpass" | debconf-set-selections
 fi
 
 # Installing HestiaCP repo
