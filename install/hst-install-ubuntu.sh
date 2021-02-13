@@ -37,7 +37,7 @@ software="apache2 apache2.2-common apache2-suexec-custom apache2-utils
     cron curl dnsutils dovecot-imapd dovecot-pop3d e2fslibs e2fsprogs exim4
     exim4-daemon-heavy expect fail2ban flex ftp git idn imagemagick
     libapache2-mod-fcgid libapache2-mod-php$fpm_v libapache2-mod-rpaf
-    lsof mc mariadb-client mariadb-common mariadb-server mysql-client mysql-common mysql-server nginx
+    lsof mc mariadb-client mariadb-common mariadb-server mysql-client-$mysql_v mysql-common-$mysql_v mysql-server-$mysql_v nginx
     php$fpm_v php$fpm_v-cgi php$fpm_v-common php$fpm_v-curl
     php$fpm_v-mysql php$fpm_v-imap php$fpm_v-ldap php$fpm_v-apcu phppgadmin
     php$fpm_v-pgsql php$fpm_v-zip php$fpm_v-bz2 php$fpm_v-cli php$fpm_v-gd
@@ -608,7 +608,7 @@ fi
 # Installing MySQL repo
 if [ "$mysql" = 'yes' ]; then
   echo "[ * ] MySQL (may take up to a few minutes...please DO NOT CLOSE the installer)"
-  apt-key adv --keyserver pgp.mit.edu --recv-keys 5072E1F5 >/dev/null 2>&1
+  apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 5072E1F5 >/dev/null 2>&1
   debconf-set-selections <<< 'mysql-apt-config mysql-apt-config/repo-codename select bionic'
   debconf-set-selections <<< 'mysql-apt-config mysql-apt-config/repo-distro select ubuntu'
   curl -o /tmp/mysql-apt-config.deb -L https://dev.mysql.com/get/mysql-apt-config_0.8.9-1_all.deb
@@ -1409,6 +1409,14 @@ if [ "$mysql" = 'yes' ] || [ "$mariadb" = 'yes' ]; then
 
   # Configuring MariaDB/MySQL
   cp -f $HESTIA_INSTALL_DIR/mysql/$mycnf /etc/mysql/my.cnf
+
+  # Configure include directory
+  if [ "$mysql" = 'yes' ]; then
+    echo "!includedir /etc/mysql/mysql.conf.d/" >> /etc/mysql/my.cnf
+  fi
+  if [ "$mariadb" = 'yes' ]; then
+    echo "!includedir /etc/mysql/mariadb.conf.d/" >> /etc/mysql/my.cnf
+  fi
   mysql_secure_installation >>$LOG
 
   update-rc.d mysql defaults >/dev/null 2>&1
