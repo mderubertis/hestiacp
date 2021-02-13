@@ -605,8 +605,8 @@ fi
 # Installing MySQL repo
 if [ "$mysql" = 'yes' ]; then
   echo "[ * ] MySQL"
-  echo "deb [arch=amd64] http://repo.mysql.com/apt/$VERSION/ $codename mysql-$mysql_v" >$apt/mysql.list
-  apt-key adv --keyserver pgp.mit.edu --recv-keys 8C718D3B5072E1F5 >/dev/null 2>&1
+  echo "deb [arch=amd64] http://repo.mysql.com/apt/$VERSION/ bionic mysql-$mysql_v" >$apt/mysql.list
+  apt-key adv --keyserver pgp.mit.edu --recv-keys 5072E1F5 >/dev/null 2>&1
 fi
 
 # Installing HestiaCP repo
