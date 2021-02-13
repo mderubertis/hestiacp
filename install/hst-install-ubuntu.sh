@@ -604,7 +604,7 @@ fi
 
 # Installing MySQL repo
 if [ "$mysql" = 'yes' ]; then
-  echo "[ * ] MySQL"
+  echo "[ * ] MySQL (may take up to a few minutes...please DO NOT CLOSE the installer)"
   echo "deb [arch=amd64] http://repo.mysql.com/apt/$VERSION/ bionic mysql-$mysql_v" >$apt/mysql.list
   apt-key adv --keyserver pgp.mit.edu --recv-keys 5072E1F5 >/dev/null 2>&1
 fi
