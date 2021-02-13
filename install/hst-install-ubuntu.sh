@@ -612,7 +612,7 @@ fi
 # Installing HestiaCP repo
 echo "[ * ] Hestia Control Panel"
 echo "deb https://$RHOST/ $codename main" >$apt/hestia.list
-apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A189E93654F0B0E5 >/dev/null 2>&1
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8C718D3B5072E1F5 >/dev/null 2>&1
 
 # Installing PostgreSQL repo
 if [ "$postgresql" = 'yes' ]; then
