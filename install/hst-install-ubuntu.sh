@@ -52,27 +52,26 @@ installer_dependencies="apt-transport-https curl dirmngr gnupg wget software-pro
 # Defining help function
 help() {
   echo "Usage: $0 [OPTIONS]
-  -a, --apache            Install Apache        [yes|no]  default: yes
-  -n, --nginx             Install Nginx         [yes|no]  default: yes
-  -w, --phpfpm            Install PHP-FPM       [yes|no]  default: yes
-  -o, --multiphp          Install Multi-PHP     [yes|no]  default: no
-  -v, --vsftpd            Install Vsftpd        [yes|no]  default: yes
-  -j, --proftpd           Install ProFTPD       [yes|no]  default: no
-  -k, --named             Install Bind          [yes|no]  default: yes
-  -my, --mysql            Install MySQL         [yes|no]  default: yes
-  -ma, --mariadb          Install MariaDB       [yes|no]  default: no
-  -g, --postgresql        Install PostgreSQL    [yes|no]  default: no
-  -x, --exim              Install Exim          [yes|no]  default: yes
-  -z, --dovecot           Install Dovecot       [yes|no]  default: yes
-  -c, --clamav            Install ClamAV        [yes|no]  default: yes
-  -t, --spamassassin      Install SpamAssassin  [yes|no]  default: yes
-  -i, --iptables          Install Iptables      [yes|no]  default: yes
-  -b, --fail2ban          Install Fail2ban      [yes|no]  default: yes
-  -q, --quota             Filesystem Quota      [yes|no]  default: no
-  -d, --api               Activate API          [yes|no]  default: yes
-  -r, --port              Change Backend Port             default: 8083
-  -l, --lang              Default language                default: en
-  -y, --interactive       Interactive install   [yes|no]  default: yes
+  -a, --apache            Install Apache            [yes|no]         default: yes
+  -n, --nginx             Install Nginx             [yes|no]         default: yes
+  -w, --phpfpm            Install PHP-FPM           [yes|no]         default: yes
+  -o, --multiphp          Install Multi-PHP         [yes|no]         default: no
+  -v, --vsftpd            Install Vsftpd            [yes|no]         default: yes
+  -j, --proftpd           Install ProFTPD           [yes|no]         default: no
+  -k, --named             Install Bind              [yes|no]         default: yes
+  -B, --database          Install MySQL or MariaDB  [mysql|mariadb]  default: mysql
+  -g, --postgresql        Install PostgreSQL        [yes|no]         default: no
+  -x, --exim              Install Exim              [yes|no]         default: yes
+  -z, --dovecot           Install Dovecot           [yes|no]         default: yes
+  -c, --clamav            Install ClamAV            [yes|no]         default: yes
+  -t, --spamassassin      Install SpamAssassin      [yes|no]         default: yes
+  -i, --iptables          Install Iptables          [yes|no]         default: yes
+  -b, --fail2ban          Install Fail2ban          [yes|no]         default: yes
+  -q, --quota             Filesystem Quota          [yes|no]         default: no
+  -d, --api               Activate API              [yes|no]         default: yes
+  -r, --port              Change Backend Port                        default: 8083
+  -l, --lang              Default language                           default: en
+  -y, --interactive       Interactive install       [yes|no]         default: yes
   -s, --hostname          Set hostname
   -e, --email             Set admin email
   -p, --password          Set admin password
@@ -149,8 +148,7 @@ for arg; do
   --vsftpd) args="${args}-v " ;;
   --proftpd) args="${args}-j " ;;
   --named) args="${args}-k " ;;
-  --mysql) args="${args}-my " ;;
-  --mariadb) args="${args}-ma " ;;
+  --database) args="${args}-B" ;;
   --postgresql) args="${args}-g " ;;
   --exim) args="${args}-x " ;;
   --dovecot) args="${args}-z " ;;
@@ -179,7 +177,7 @@ done
 eval set -- "$args"
 
 # Parsing arguments
-while getopts "a:n:w:v:j:k:my:ma:g:d:x:z:c:t:i:b:r:o:q:l:y:s:e:p:D:fh" Option; do
+while getopts "a:n:w:v:j:k:B:g:d:x:z:c:t:i:b:r:o:q:l:y:s:e:p:D:fh" Option; do
   case $Option in
   a) apache=$OPTARG ;; # Apache
   n) nginx=$OPTARG ;; # Nginx
@@ -188,8 +186,7 @@ while getopts "a:n:w:v:j:k:my:ma:g:d:x:z:c:t:i:b:r:o:q:l:y:s:e:p:D:fh" Option; d
   v) vsftpd=$OPTARG ;; # Vsftpd
   j) proftpd=$OPTARG ;; # Proftpd
   k) named=$OPTARG ;; # Named
-  my) mysql=$OPTARG ;; # MySQL
-  ma) mariadb=$OPTARG ;; # MariaDB
+  B) database=$OPTARG ;; # database (mysql/mariadb
   g) postgresql=$OPTARG ;; # PostgreSQL
   x) exim=$OPTARG ;; # Exim
   z) dovecot=$OPTARG ;; # Dovecot
@@ -220,8 +217,7 @@ set_default_value 'multiphp' 'no'
 set_default_value 'vsftpd' 'yes'
 set_default_value 'proftpd' 'no'
 set_default_value 'named' 'yes'
-set_default_value 'mysql' 'yes'
-set_default_value 'mariadb' 'no'
+set_default_value 'database' 'mysql'
 set_default_value 'postgresql' 'no'
 set_default_value 'exim' 'yes'
 set_default_value 'dovecot' 'yes'
@@ -252,11 +248,13 @@ fi
 if [ "$iptables" = 'no' ]; then
   fail2ban='no'
 fi
-if [ "$mysql" = 'yes' ]; then
+if [ "$database" = 'mysql' ]; then
+  mysql='yes'
   mariadb='no'
 fi
-if [ "$mariadb" = 'yes' ]; then
+if [ "$database" = 'mariadb' ]; then
   mysql='no'
+  mariadb='yes'
 fi
 
 # Checking root permissions
