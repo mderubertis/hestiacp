@@ -1407,16 +1407,15 @@ if [ "$mysql" = 'yes' ] || [ "$mariadb" = 'yes' ]; then
   # Remove symbolic link
   rm -f /etc/mysql/my.cnf
 
+  # Configure include directory
+  if [ "$mysql" = 'yes' ]; then
+    sed -i '$d' $HESTIA_INSTALL_DIR/mysql/$mycnf
+    echo '!includedir /etc/mysql/mysql.conf.d/' >> $HESTIA_INSTALL_DIR/mysql/$mycnf
+  fi
+
   # Configuring MariaDB/MySQL
   cp -f $HESTIA_INSTALL_DIR/mysql/$mycnf /etc/mysql/my.cnf
 
-  # Configure include directory
-  if [ "$mysql" = 'yes' ]; then
-    echo "!includedir /etc/mysql/mysql.conf.d/" >> /etc/mysql/my.cnf
-  fi
-  if [ "$mariadb" = 'yes' ]; then
-    echo "!includedir /etc/mysql/mariadb.conf.d/" >> /etc/mysql/my.cnf
-  fi
   mysql_secure_installation >>$LOG
 
   update-rc.d mysql defaults >/dev/null 2>&1
