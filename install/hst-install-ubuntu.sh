@@ -361,24 +361,24 @@ if [ -d /etc/netplan ] && [ -z "$force" ]; then
 fi
 
 # Validate whether installation script matches release version before continuing with install
-if [ -z "$withdebs" ] || [ ! -d "$withdebs" ]; then
-  release_branch_ver=$(curl -s https://raw.githubusercontent.com/mderubertis/hestiacp/main/src/deb/hestia/control | grep "Version:" | awk '{print $2}')
-  if [ "$HESTIA_INSTALL_VER" != "$release_branch_ver" ]; then
-    echo
-    echo -e "\e[91mInstallation aborted\e[0m"
-    echo "===================================================================="
-    echo -e "\e[33mERROR: Install script version does not match package version!\e[0m"
-    echo -e "\e[33mPlease download the installer from the release branch in order to continue:\e[0m"
-    echo ""
-    echo -e "\e[33mhttps://raw.githubusercontent.com/hestiacp/hestiacp/release/install/hst-install.sh\e[0m"
-    echo ""
-    echo -e "\e[33mTo test pre-release versions, build the .deb packages and re-run the installer:\e[0m"
-    echo -e "  \e[33m./hst_autocompile.sh \e[1m--hestia branchname no\e[21m\e[0m"
-    echo -e "  \e[33m./hst-install.sh .. \e[1m--with-debs /tmp/hestiacp-src/debs\e[21m\e[0m"
-    echo ""
-    check_result 1 "Installation aborted"
-  fi
-fi
+#if [ -z "$withdebs" ] || [ ! -d "$withdebs" ]; then
+#  release_branch_ver=$(curl -s https://raw.githubusercontent.com/mderubertis/hestiacp/main/src/deb/hestia/control | grep "Version:" | awk '{print $2}')
+#  if [ "$HESTIA_INSTALL_VER" != "$release_branch_ver" ]; then
+#    echo
+#    echo -e "\e[91mInstallation aborted\e[0m"
+#    echo "===================================================================="
+#    echo -e "\e[33mERROR: Install script version does not match package version!\e[0m"
+#    echo -e "\e[33mPlease download the installer from the release branch in order to continue:\e[0m"
+#    echo ""
+#    echo -e "\e[33mhttps://raw.githubusercontent.com/hestiacp/hestiacp/release/install/hst-install.sh\e[0m"
+#    echo ""
+#    echo -e "\e[33mTo test pre-release versions, build the .deb packages and re-run the installer:\e[0m"
+#    echo -e "  \e[33m./hst_autocompile.sh \e[1m--hestia branchname no\e[21m\e[0m"
+#    echo -e "  \e[33m./hst-install.sh .. \e[1m--with-debs /tmp/hestiacp-src/debs\e[21m\e[0m"
+#    echo ""
+#    check_result 1 "Installation aborted"
+#  fi
+#fi
 
 #----------------------------------------------------------#
 #                       Brief Info                         #
@@ -873,11 +873,11 @@ apt-get -y install $software >/dev/null 2>&1 &
 BACK_PID=$!
 
 # Check if package installation is done, print a spinner
-#spin_i=1
-#while kill -0 $BACK_PID >/dev/null 2>&1; do
-#  printf "\b${spinner:spin_i++%${#spinner}:1}"
-#  sleep 0.5
-#done
+spin_i=1
+while kill -0 $BACK_PID >/dev/null 2>&1; do
+  printf "\b${spinner:spin_i++%${#spinner}:1}"
+  sleep 0.5
+done
 
 # Do a blank echo to get the \n back
 echo
@@ -1444,41 +1444,56 @@ fi
 #                    Configure phpMyAdmin                  #
 #----------------------------------------------------------#
 
-if [ "$mysql" = 'yes' ] || [ "$mariadb" = 'yes' ]; then
-      # Display upgrade information
-    echo "[ * ] Installing phpMyAdmin version v$pma_v..."
+if [ "$mysql" = 'yes' ]; then
+  # Display upgrade information
+  echo "[ * ] Installing phpMyAdmin version v$pma_v..."
 
-    # Download latest phpmyadmin release
-    wget --quiet https://files.phpmyadmin.net/phpMyAdmin/$pma_v/phpMyAdmin-$pma_v-all-languages.tar.gz
+  # Download latest phpmyadmin release
+  wget --quiet https://files.phpmyadmin.net/phpMyAdmin/$pma_v/phpMyAdmin-$pma_v-all-languages.tar.gz
 
-    # Unpack files
-    tar xzf phpMyAdmin-$pma_v-all-languages.tar.gz
+  # Unpack files
+  tar xzf phpMyAdmin-$pma_v-all-languages.tar.gz
 
-    # Delete files to prevent error
-    rm -fr /usr/share/phpmyadmin/doc/html
-    rm -fr /usr/share/phpmyadmin/js/vendor/openlayers
+  # Create folders
+  mkdir -p /usr/share/phpmyadmin
+  mkdir -p /etc/phpmyadmin
+  mkdir -p /etc/phpmyadmin/conf.d/
+  mkdir /usr/share/phpmyadmin/tmp
 
-    # Overwrite old files
-    cp -rf phpMyAdmin-$pma_v-all-languages/* /usr/share/phpmyadmin
+  # Configuring Apache2 for PHPMYADMIN
+  if [ "$apache" = 'yes' ]; then
+    cp -f $HESTIA_INSTALL_DIR/pma/apache.conf /etc/phpmyadmin/
+    ln -s /etc/phpmyadmin/apache.conf /etc/apache2/conf.d/phpmyadmin.conf
+  fi
 
-    # Set config and log directory
-    sed -i "s|define('CONFIG_DIR', ROOT_PATH);|define('CONFIG_DIR', '/etc/phpmyadmin/');|" /usr/share/phpmyadmin/libraries/vendor_config.php
-    sed -i "s|define('TEMP_DIR', ROOT_PATH . 'tmp/');|define('TEMP_DIR', '/var/lib/phpmyadmin/tmp/');|" /usr/share/phpmyadmin/libraries/vendor_config.php
+  # Overwrite old files
+  cp -rf phpMyAdmin-$pma_v-all-languages/* /usr/share/phpmyadmin
 
-    # Create temporary folder and change permission
-    [ ! -d "/usr/share/phpmyadmin/tmp" ] && mkdir /usr/share/phpmyadmin/tmp
-    chmod 777 /usr/share/phpmyadmin/tmp
+  # Create copy of config file
+  [ ! -f "$HESTIA_INSTALL_DIR/phpmyadmin/config.inc.php" ]; wget -O $HESTIA_INSTALL_DIR/phpmyadmin/config.inc.php https://raw.githubusercontent.com/mderubertis/hestiacp/main/install/deb/phpmyadmin/config.inc.php >/dev/null 2>&1
+  cp -f $HESTIA_INSTALL_DIR/phpmyadmin/config.inc.php /etc/phpmyadmin/
 
-    if [ -e /var/lib/phpmyadmin/blowfish_secret.inc.php ]; then
-        chmod 0644 /var/lib/phpmyadmin/blowfish_secret.inc.php
-    fi
+  # Set config and log directory
+  sed -i "s|define('CONFIG_DIR', ROOT_PATH);|define('CONFIG_DIR', '/etc/phpmyadmin/');|" /usr/share/phpmyadmin/libraries/vendor_config.php
+  sed -i "s|define('TEMP_DIR', ROOT_PATH . 'tmp/');|define('TEMP_DIR', '/usr/share/phpmyadmin/tmp');|" /usr/share/phpmyadmin/libraries/vendor_config.php
 
-    # Clear Up
-    rm -fr phpMyAdmin-$pma_v-all-languages
-    rm -f phpMyAdmin-$pma_v-all-languages.tar.gz
+  # Create temporary folder and change permission
+  chmod 777 /usr/share/phpmyadmin/tmp/
 
-    echo "DB_PMA_ALIAS='phpmyadmin'" >> $HESTIA/conf/hestia.conf
-    $HESTIA/bin/v-change-sys-db-alias 'pma' "phpmyadmin"
+  # Generate blow fish
+  blowfish=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32)
+  sed -i "s|%blowfish_secret%|$blowfish|" /etc/phpmyadmin/config.inc.php
+
+  # Clean Up
+  rm -fr phpMyAdmin-$pma_v-all-languages
+  rm -f phpMyAdmin-$pma_v-all-languages.tar.gz
+
+  echo "DB_PMA_ALIAS='phpmyadmin'" >>$HESTIA/conf/hestia.conf
+  $HESTIA/bin/v-change-sys-db-alias 'pma' "phpmyadmin"
+
+  # Special thanks to Pavel Galkin (https://skurudo.ru)
+  # https://github.com/skurudo/phpmyadmin-fixer
+  source $HESTIA_INSTALL_DIR/phpmyadmin/pma.sh >/dev/null 2>&1
 fi
 
 #----------------------------------------------------------#
