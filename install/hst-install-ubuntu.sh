@@ -23,7 +23,7 @@ HESTIA_INSTALL_DIR="$HESTIA/install/deb"
 VERBOSE='no'
 
 # Define software versions
-HESTIA_INSTALL_VER='1.3.2'
+HESTIA_INSTALL_VER='1.3.3'
 pma_v='5.0.4'
 rc_v="1.4.10"
 multiphp_v=("5.6" "7.0" "7.1" "7.2" "7.3" "7.4" "8.0")
@@ -362,7 +362,7 @@ fi
 
 # Validate whether installation script matches release version before continuing with install
 if [ -z "$withdebs" ] || [ ! -d "$withdebs" ]; then
-  release_branch_ver=$(curl -s https://raw.githubusercontent.com/hestiacp/hestiacp/release/src/deb/hestia/control | grep "Version:" | awk '{print $2}')
+  release_branch_ver=$(curl -s https://raw.githubusercontent.com/mderubertis/hestiacp/main/src/deb/hestia/control | grep "Version:" | awk '{print $2}')
   if [ "$HESTIA_INSTALL_VER" != "$release_branch_ver" ]; then
     echo
     echo -e "\e[91mInstallation aborted\e[0m"
@@ -611,12 +611,12 @@ if [ "$mysql" = 'yes' ]; then
   apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 5072E1F5 >/dev/null 2>&1
   debconf-set-selections <<< 'mysql-apt-config mysql-apt-config/repo-codename select bionic'
   debconf-set-selections <<< 'mysql-apt-config mysql-apt-config/repo-distro select ubuntu'
-  curl -o /tmp/mysql-apt-config.deb -L https://dev.mysql.com/get/mysql-apt-config_0.8.9-1_all.deb
-  DEBIAN_FRONTEND=noninteractive dpkg -i /tmp/mysql-apt-config*
+  export DEBIAN_FRONTEND=noninteractive
+  curl -o /tmp/mysql-apt-config.deb -L https://dev.mysql.com/get/mysql-apt-config_0.8.9-1_all.deb >/dev/null 2>&1
+  dpkg -i /tmp/mysql-apt-config* >/dev/null 2>&1
   rm /tmp/mysql-apt-config*
   debconf-set-selections <<< "mysql-community-server mysql-community-server/root-pass password $mpass"
   debconf-set-selections <<< "mysql-community-server mysql-community-server/re-root-pass password $mpass"
-  echo "MySQL root generated: $mpass"
 fi
 
 # Installing HestiaCP repo
@@ -867,15 +867,17 @@ chmod a+x /usr/sbin/policy-rc.d
 echo "The installer is now downloading and installing all required packages."
 echo -ne "NOTE: This process may take 10 to 15 minutes to complete, please wait... "
 echo
+
 apt-get -y install $software >/dev/null 2>&1 &
+#apt-get -y install $software
 BACK_PID=$!
 
 # Check if package installation is done, print a spinner
-spin_i=1
-while kill -0 $BACK_PID >/dev/null 2>&1; do
-  printf "\b${spinner:spin_i++%${#spinner}:1}"
-  sleep 0.5
-done
+#spin_i=1
+#while kill -0 $BACK_PID >/dev/null 2>&1; do
+#  printf "\b${spinner:spin_i++%${#spinner}:1}"
+#  sleep 0.5
+#done
 
 # Do a blank echo to get the \n back
 echo
@@ -1397,6 +1399,8 @@ fi
 
 if [ "$mysql" = 'yes' ] || [ "$mariadb" = 'yes' ]; then
   echo "[ * ] Configuring database server..."
+
+  # Stop mysql before configuring
   mycnf="my-small.cnf"
   if [ $memory -gt 1200000 ]; then
     mycnf="my-medium.cnf"
@@ -1416,84 +1420,65 @@ if [ "$mysql" = 'yes' ] || [ "$mariadb" = 'yes' ]; then
 
   # Configuring MariaDB/MySQL
   cp -f $HESTIA_INSTALL_DIR/mysql/$mycnf /etc/mysql/my.cnf
-  if [ "$release" != '16.04' ]; then
-      mysql_install_db
-  fi
-  if [ "$release" == '18.04' ]; then
-      mkdir /var/lib/mysql
-      chown mysql:mysql /var/lib/mysql
-      mysqld --initialize-insecure
-  fi
+
+#  mkdir /var/lib/mysql
+#  chown mysql:mysql /var/lib/mysql
+#  mysqld --initialize-insecure
+
   update-rc.d mysql defaults
   service mysql start
   check_result $? "mysql start failed"
 
   # Securing MySQL/MariaDB installation
-  mysqladmin -u root password $mpass
+  mysqladmin -u root password $mpass >/dev/null 2>&1
   echo -e "[client]\npassword='$mpass'\n" > /root/.my.cnf
   chmod 600 /root/.my.cnf
-  mysql -e "DELETE FROM mysql.user WHERE User=''"
+  mysql -e "DELETE FROM mysql.user WHERE User=''" >/dev/null 2>&1
   mysql -e "DROP DATABASE test" >/dev/null 2>&1
-  mysql -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%'"
-  mysql -e "DELETE FROM mysql.user WHERE user='' OR password='';"
-  mysql -e "FLUSH PRIVILEGES"
+  mysql -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%'" >/dev/null 2>&1
+  mysql -e "DELETE FROM mysql.user WHERE user='' OR password='';" >/dev/null 2>&1
+  mysql -e "FLUSH PRIVILEGES" >/dev/null 2>&1
 fi
 
 #----------------------------------------------------------#
 #                    Configure phpMyAdmin                  #
 #----------------------------------------------------------#
 
-if [ "$mysql" = 'yes' ]; then
-  # Display upgrade information
-  echo "[ * ] Installing phpMyAdmin version v$pma_v..."
+if [ "$mysql" = 'yes' ] || [ "$mariadb" = 'yes' ]; then
+      # Display upgrade information
+    echo "[ * ] Installing phpMyAdmin version v$pma_v..."
 
-  # Download latest phpmyadmin release
-  wget --quiet https://files.phpmyadmin.net/phpMyAdmin/$pma_v/phpMyAdmin-$pma_v-all-languages.tar.gz
+    # Download latest phpmyadmin release
+    wget --quiet https://files.phpmyadmin.net/phpMyAdmin/$pma_v/phpMyAdmin-$pma_v-all-languages.tar.gz
 
-  # Unpack files
-  tar xzf phpMyAdmin-$pma_v-all-languages.tar.gz
+    # Unpack files
+    tar xzf phpMyAdmin-$pma_v-all-languages.tar.gz
 
-  # Create folders
-  mkdir -p /usr/share/phpmyadmin
-  mkdir -p /etc/phpmyadmin
-  mkdir -p /etc/phpmyadmin/conf.d/
-  mkdir /usr/share/phpmyadmin/tmp
+    # Delete files to prevent error
+    rm -fr /usr/share/phpmyadmin/doc/html
+    rm -fr /usr/share/phpmyadmin/js/vendor/openlayers
 
-  # Configuring Apache2 for PHPMYADMIN
-  if [ "$apache" = 'yes' ]; then
-    cp -f $HESTIA_INSTALL_DIR/pma/apache.conf /etc/phpmyadmin/
-    ln -s /etc/phpmyadmin/apache.conf /etc/apache2/conf.d/phpmyadmin.conf
-  fi
+    # Overwrite old files
+    cp -rf phpMyAdmin-$pma_v-all-languages/* /usr/share/phpmyadmin
 
-  # Overwrite old files
-  cp -rf phpMyAdmin-$pma_v-all-languages/* /usr/share/phpmyadmin
+    # Set config and log directory
+    sed -i "s|define('CONFIG_DIR', ROOT_PATH);|define('CONFIG_DIR', '/etc/phpmyadmin/');|" /usr/share/phpmyadmin/libraries/vendor_config.php
+    sed -i "s|define('TEMP_DIR', ROOT_PATH . 'tmp/');|define('TEMP_DIR', '/var/lib/phpmyadmin/tmp/');|" /usr/share/phpmyadmin/libraries/vendor_config.php
 
-  # Create copy of config file
-  cp -f $HESTIA_INSTALL_DIR/phpmyadmin/config.inc.php /etc/phpmyadmin/
-  chmod 777 /var/lib/phpmyadmin/tmp
+    # Create temporary folder and change permission
+    [ ! -d "/usr/share/phpmyadmin/tmp" ] && mkdir /usr/share/phpmyadmin/tmp
+    chmod 777 /usr/share/phpmyadmin/tmp
 
-  # Set config and log directory
-  sed -i "s|define('CONFIG_DIR', ROOT_PATH);|define('CONFIG_DIR', '/etc/phpmyadmin/');|" /usr/share/phpmyadmin/libraries/vendor_config.php
-  sed -i "s|define('TEMP_DIR', ROOT_PATH . 'tmp/');|define('TEMP_DIR', '/var/lib/phpmyadmin/tmp/');|" /usr/share/phpmyadmin/libraries/vendor_config.php
+    if [ -e /var/lib/phpmyadmin/blowfish_secret.inc.php ]; then
+        chmod 0644 /var/lib/phpmyadmin/blowfish_secret.inc.php
+    fi
 
-  # Create temporary folder and change permission
-  mkdir /usr/share/phpmyadmin/tmp
-  chmod 777 /usr/share/phpmyadmin/tmp
+    # Clear Up
+    rm -fr phpMyAdmin-$pma_v-all-languages
+    rm -f phpMyAdmin-$pma_v-all-languages.tar.gz
 
-  # Generate blow fish
-  blowfish=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32)
-  sed -i "s|%blowfish_secret%|$blowfish|" /etc/phpmyadmin/config.inc.php
-
-  # Clean Up
-  rm -fr phpMyAdmin-$pma_v-all-languages
-  rm -f phpMyAdmin-$pma_v-all-languages.tar.gz
-
-  echo "DB_PMA_ALIAS='phpmyadmin'" >>$HESTIA/conf/hestia.conf
-  $HESTIA/bin/v-change-sys-db-alias 'pma' "phpmyadmin"
-
-  # Special thanks to Pavel Galkin (https://skurudo.ru)
-  # https://github.com/skurudo/phpmyadmin-fixer
-  source $HESTIA_INSTALL_DIR/phpmyadmin/pma.sh >/dev/null 2>&1
+    echo "DB_PMA_ALIAS='phpmyadmin'" >> $HESTIA/conf/hestia.conf
+    $HESTIA/bin/v-change-sys-db-alias 'pma' "phpmyadmin"
 fi
 
 #----------------------------------------------------------#
